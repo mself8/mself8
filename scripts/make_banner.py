@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Animated soccer-pitch banner for the profile README.
 
-Players move like tracking data while a passing move ends in a goal (14 s loop).
+A top-down, dot-style homage to Rooney's bicycle kick (Man Utd 2-1 Man City,
+12 Feb 2011): a long ball out to Nani, his cross deflects off a defender, and
+Rooney's overhead kick flies into the top corner (14 s loop). Positions are a
+rough reconstruction, not tracking data.
+
 The animation is plain SMIL, so it plays inside GitHub's <img> rendering.
 Text is converted to outlines, so the banner looks the same on every machine.
 
@@ -21,12 +25,17 @@ X0, X1, Y0, Y1 = -4.0, 109.0, 12.0, 56.0  # visible window of a 105 x 68 m pitch
 S = W / (X1 - X0)                         # px per metre
 H = round((Y1 - Y0) * S)
 PLAY_END, RESET_END = 12.4, 13.2          # fade out 11.6-12.4, reset hidden, fade in 13.2-14.0
-GOAL_T = 9.15
+
+CROSS_T, DEFLECT_T = 6.2, 6.25            # Nani crosses, the ball clips the defender
+CONTACT_T = 7.6                           # overhead kick
+GOAL_T, NET_END = 7.95, 8.25
 
 NAME = "SONGYUN JEONG"
 TAGLINE = "Sports Analytics × Machine Learning"
+CAPTION = "Rooney 78′ · Man Utd 2–1 Man City · Feb 2011"
 
-RED, RED_GK, BLUE, BLUE_GK = "#ef4444", "#facc15", "#3b82f6", "#a855f7"
+RED, RED_GK, BLUE, BLUE_GK = "#da291c", "#facc15", "#6cabdd", "#a855f7"
+NUMBERS = {"AST": "10", "ARW": "17"}      # Rooney, Nani
 
 
 def clamp(v, lo, hi):
@@ -36,52 +45,6 @@ def clamp(v, lo, hi):
 def fmt(v, digits=2):
     s = f"{v:.{digits}f}".rstrip("0").rstrip(".")
     return "0" if s == "-0" else s
-
-
-# ------------------------------------------------------- scripted attackers
-# Red attacks to the right. Keys are (t, x, y) in metres; players involved in
-# the move follow these, everyone else reacts to the ball (see simulate()).
-KEYS = {
-    "RCB": [(0.0, 22.0, 41.0), (0.3, 22.0, 41.0)],
-    "DM": [(0.0, 29.5, 36.4), (1.1, 31.0, 35.5), (1.35, 31.4, 35.3)],
-    "LB": [(0.0, 33.5, 16.6), (2.5, 38.0, 17.5), (3.9, 47.0, 18.3)],
-    "LCM": [(0.0, 43.0, 25.2), (4.5, 52.5, 26.5), (4.75, 52.9, 26.7)],
-    "RW": [(0.0, 60.0, 52.4), (4.5, 62.5, 52.6), (6.15, 72.0, 52.2), (8.0, 85.3, 49.3)],
-    "ST": [(0.0, 62.0, 34.5), (4.5, 70.0, 36.0), (6.5, 80.0, 37.0), (8.0, 90.5, 38.6),
-           (8.65, 95.6, 40.3), (8.8, 96.4, 40.4), (9.6, 98.6, 44.5), (11.2, 100.0, 51.0),
-           (PLAY_END, 100.2, 51.4)],
-}
-
-# ball: (start, end, kind, arg)
-EVENTS = [
-    (0.0, 0.3, "hold", "RCB"),
-    (0.3, 1.1, "pass", None),
-    (1.1, 1.35, "hold", "DM"),
-    (1.35, 2.5, "pass", None),
-    (2.5, 3.9, "carry", "LB"),
-    (3.9, 4.5, "pass", None),
-    (4.5, 4.75, "hold", "LCM"),
-    (4.75, 6.15, "loft", None),
-    (6.15, 8.0, "carry", "RW"),
-    (8.0, 8.65, "pass", None),
-    (8.65, 8.8, "hold", "ST"),
-    (8.8, GOAL_T, "shot", (105.0, 31.0)),
-    (GOAL_T, 9.45, "net", (106.4, 30.8)),
-    (9.45, PLAY_END, "rest", None),
-]
-
-A_BASE = {  # red shape while building up from the back
-    "GK": (6.0, 34.0), "LCB": (21.0, 27.0), "RCB": (22.0, 41.0), "LB": (34.0, 16.5),
-    "RB": (33.0, 51.5), "DM": (31.0, 35.5), "LCM": (43.0, 25.0), "RCM": (42.0, 44.0),
-    "LW": (55.0, 18.0), "ST": (62.0, 34.5), "RW": (60.0, 52.4),
-}
-B_BASE = {  # blue 4-4-2 block when the ball is at the centre spot
-    "GK": (103.3, 34.0),
-    "D1": (84.0, 20.5), "D2": (85.5, 30.0), "D3": (85.5, 38.5), "D4": (84.0, 48.0),
-    "M1": (71.0, 19.0), "M2": (69.5, 29.5), "M3": (69.5, 38.5), "M4": (71.0, 49.0),
-    "F1": (57.0, 30.0), "F2": (58.0, 39.0),
-}
-CELEBRATE = ["RW", "LCM", "LW", "RCM", "LB", "DM"]
 
 
 def hermite(keys):
@@ -115,13 +78,33 @@ def hermite(keys):
     return f
 
 
-TRACK = {name: hermite(keys) for name, keys in KEYS.items()}
-TEND = {name: keys[-1][0] for name, keys in KEYS.items()}
-
-
 def unit(dx, dy):
     n = math.hypot(dx, dy)
     return (1.0, 0.0) if n < 1e-6 else (dx / n, dy / n)
+
+
+# ------------------------------------------------------- scripted players
+# Red attacks to the right. Keys are (t, x, y) in metres; players in the move
+# follow these, everyone else reacts to the ball (see simulate()).
+KEYS = {
+    "LCB": [(0.0, 24.0, 30.0), (0.5, 24.0, 30.0)],                                   # Vidic
+    "DM": [(0.0, 37.5, 37.8), (0.5, 38.6, 37.2), (1.4, 41.0, 36.4), (1.7, 41.4, 36.3)],  # Scholes
+    "RW": [(0.0, 60.0, 52.8), (1.7, 63.5, 53.0), (3.2, 66.5, 53.0), (4.6, 76.0, 52.4),     # Nani
+           (CROSS_T, 85.8, 51.3), (6.5, 86.5, 51.2), (7.2, 87.0, 51.6)],
+    "ST": [(0.0, 63.0, 35.5), (1.7, 66.0, 35.0), (3.2, 71.0, 35.5), (5.0, 82.0, 36.5),     # Rooney
+           (CROSS_T, 90.0, 37.0), (6.9, 93.0, 36.0), (7.35, 94.3, 35.0), (CONTACT_T, 94.6, 34.7),
+           (7.8, 94.5, 34.6), (8.4, 94.9, 35.6), (9.4, 97.0, 41.0), (10.6, 99.0, 47.5),
+           (PLAY_END, 99.8, 50.5)],
+}
+KEYS_B = {  # the full-back who gets to Nani and deflects the cross
+    "D4": [(0.0, 73.0, 46.8), (1.7, 76.0, 48.5), (3.2, 80.5, 50.0), (4.6, 83.0, 50.6),
+           (5.6, 86.0, 50.6), (CROSS_T, 87.6, 50.4), (6.32, 87.9, 50.2), (6.9, 88.8, 50.3),
+           (CONTACT_T, 89.6, 49.6), (8.4, 90.2, 48.8)],
+}
+TRACK = {name: hermite(keys) for name, keys in KEYS.items()}
+TEND = {name: keys[-1][0] for name, keys in KEYS.items()}
+TRACK_B = {name: hermite(keys) for name, keys in KEYS_B.items()}
+TEND_B = {name: keys[-1][0] for name, keys in KEYS_B.items()}
 
 
 def at_feet(name, t, running):
@@ -132,6 +115,46 @@ def at_feet(name, t, running):
     else:
         ux, uy = 1.0, 0.0
     return (x + 0.6 * ux, y + 0.6 * uy)
+
+
+def _deflect_point():
+    dx, dy = TRACK_B["D4"](DEFLECT_T)
+    fx, fy = at_feet("RW", CROSS_T, True)
+    ux, uy = unit(fx - dx, fy - dy)
+    return (dx + 0.75 * ux, dy + 0.75 * uy)
+
+
+DEFLECT_P = _deflect_point()
+CONTACT_P = (TRACK["ST"](CONTACT_T)[0] + 0.45, TRACK["ST"](CONTACT_T)[1] - 0.15)
+GOAL_P, NET_P = (105.0, 31.3), (106.3, 31.1)
+
+# ball: (start, end, kind, arg)
+EVENTS = [
+    (0.0, 0.5, "hold", "LCB"),
+    (0.5, 1.4, "pass", None),
+    (1.4, 1.7, "hold", "DM"),
+    (1.7, 3.2, "loft", None),
+    (3.2, CROSS_T, "carry", "RW"),
+    (CROSS_T, DEFLECT_T, "to", DEFLECT_P),
+    (DEFLECT_T, CONTACT_T, "to", CONTACT_P),
+    (CONTACT_T, GOAL_T, "to", GOAL_P),
+    (GOAL_T, NET_END, "net", NET_P),
+    (NET_END, PLAY_END, "rest", NET_P),
+]
+
+A_BASE = {  # red shape while building up from the back
+    "GK": (6.0, 34.0), "LCB": (21.0, 27.0), "RCB": (22.0, 41.0), "LB": (34.0, 16.5),
+    "RB": (33.0, 51.5), "DM": (31.0, 35.5), "LCM": (43.0, 25.0), "RCM": (42.0, 44.0),
+    "LW": (55.0, 18.0), "ST": (62.0, 34.5), "RW": (60.0, 52.4),
+}
+B_BASE = {  # blue 4-4-2 block when the ball is at the centre spot
+    "GK": (103.3, 34.0),
+    "D1": (84.0, 20.5), "D2": (85.5, 30.0), "D3": (85.5, 38.5), "D4": (84.0, 48.0),
+    "M1": (71.0, 19.0), "M2": (69.5, 29.5), "M3": (69.5, 38.5), "M4": (71.0, 49.0),
+    "F1": (57.0, 30.0), "F2": (58.0, 39.0),
+}
+CELEBRATE = ["RW", "LCM", "LW", "RCM", "LB", "DM"]
+AIR_HOLD = {"M4": (84.0, 46.5)}  # keeps the helping midfielder out from under the cross
 
 
 def ease_pass(u):
@@ -151,14 +174,14 @@ def ball_play(t):
         a, b = ball_play(t0 - 1e-6), ball_play(t1 + 1e-6)
         e = ease_pass(u)
         return (a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e)
-    if kind == "shot":
+    if kind == "to":
         a = ball_play(t0 - 1e-6)
         return (a[0] + (arg[0] - a[0]) * u, a[1] + (arg[1] - a[1]) * u)
     if kind == "net":
         a = EVENTS[k - 1][3]
         e = 1 - (1 - u) ** 2
         return (a[0] + (arg[0] - a[0]) * e, a[1] + (arg[1] - a[1]) * e)
-    return EVENTS[k - 1][3]  # rest: ball sits in the net
+    return arg  # rest: ball sits in the net
 
 
 def ball_at(t):
@@ -169,9 +192,31 @@ def ball_at(t):
     return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
 
 
-def loft_scale(t):
-    t0, t1 = 4.75, 6.15
-    return 1.0 + 0.45 * math.sin(math.pi * (t - t0) / (t1 - t0)) if t0 < t < t1 else 1.0
+def ball_height(t):
+    """Drawn size of the ball (1 = on the grass); larger means higher."""
+    def phase(t0, t1):
+        return (t - t0) / (t1 - t0) if t0 < t < t1 else None
+    if (u := phase(1.7, 3.2)) is not None:
+        return 1.0 + 0.45 * math.sin(math.pi * u)
+    if (u := phase(CROSS_T, DEFLECT_T)) is not None:
+        return 1.0 + 0.15 * u
+    if (u := phase(DEFLECT_T, CONTACT_T)) is not None:       # looping deflection
+        return 1.15 + 0.23 * u + 0.55 * math.sin(math.pi * u)
+    if (u := phase(CONTACT_T, GOAL_T)) is not None:          # volley toward the top corner
+        return 1.38 - 0.10 * u
+    if (u := phase(GOAL_T, NET_END)) is not None:
+        return 1.28 - 0.18 * u
+    return 1.0
+
+
+def rooney_lift(t):
+    """Rooney leaves the ground for the overhead kick and lands on his back."""
+    keys = [(0.0, 1.0), (7.38, 1.0), (7.55, 1.2), (7.72, 0.9), (8.3, 1.0), (T, 1.0)]
+    for (t0, a), (t1, b) in zip(keys, keys[1:]):
+        if t0 <= t <= t1:
+            u = (t - t0) / (t1 - t0)
+            return a + (b - a) * (0.5 - 0.5 * math.cos(math.pi * u))
+    return 1.0
 
 
 # --------------------------------------------------------------- reactions
@@ -257,10 +302,10 @@ def simulate(dt=0.02):
     for n in reds:
         pos["A" + n] = TRACK[n](0.0) if n in TRACK else a_target(n, ball0, 84.0)
     for n in blues:
-        pos["B" + n] = b_target(n, ball0)
+        pos["B" + n] = TRACK_B[n](0.0) if n in TRACK_B else b_target(n, ball0)
     for k in pos:
         vel[k] = (0.0, 0.0)
-    separate(pos, {"A" + n for n in TRACK})
+    separate(pos, {"A" + n for n in TRACK} | {"B" + n for n in TRACK_B})
 
     hist = {k: [] for k in pos}
     presser, dive = None, None
@@ -268,8 +313,12 @@ def simulate(dt=0.02):
     for i in range(steps + 1):
         t = i * dt
         ball = ball_at(t)
+        in_air = DEFLECT_T <= t < CONTACT_T   # defenders head for where the cross will land
+        def_ball = CONTACT_P if in_air else ball
         line = max(pos["B" + n][0] for n in b_out)
-        if i % int(round(0.4 / dt)) == 0 and t < GOAL_T:
+        if in_air:
+            presser = None
+        elif i % int(round(0.4 / dt)) == 0 and t < GOAL_T:
             presser = min(b_out, key=lambda n: math.dist(pos["B" + n], ball))
         for k in pos:
             hist[k].append(pos[k])
@@ -291,12 +340,16 @@ def simulate(dt=0.02):
             pos[k], vel[k] = step(pos[k], vel[k], target, 0.6, vmax, 5.0, dt)
         for n in blues:
             k = "B" + n
+            if n in TRACK_B and t < TEND_B[n]:
+                (x1, y1), (x2, y2) = TRACK_B[n](t), TRACK_B[n](t + dt)
+                pos[k], vel[k] = (x2, y2), ((x2 - x1) / dt, (y2 - y1) / dt)
+                continue
             if n == "GK":
-                if t >= 8.75:
+                if t >= CONTACT_T - 0.05:  # late dive toward the top corner
                     if dive is None:
                         x0, y0 = pos[k]
-                        dive = hermite([(8.75, x0, y0), (9.08, 103.8, 34.7), (9.5, 104.0, 34.2),
-                                        (11.2, 103.8, 34.3), (PLAY_END, 103.8, 34.3)])
+                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (7.92, 103.9, 33.8), (8.3, 104.0, 33.4),
+                                        (11.0, 103.8, 33.5), (PLAY_END, 103.8, 33.5)])
                     pos[k] = dive(t + dt)
                     continue
                 pos[k], vel[k] = step(pos[k], vel[k], b_target(n, ball), 0.3, 5.0, 8.0, dt)
@@ -306,12 +359,16 @@ def simulate(dt=0.02):
             elif n == presser:
                 gx, gy = unit(105.0 - ball[0], 34.0 - ball[1])
                 target, tau, vmax = (ball[0] + 2.6 * gx, ball[1] + 2.6 * gy), 0.35, 7.5
+            elif in_air and n in AIR_HOLD:
+                target, tau, vmax = AIR_HOLD[n], 0.6, 7.0
             else:
-                target, tau, vmax = b_target(n, ball), 0.6, 7.0
+                target, tau, vmax = b_target(n, def_ball), 0.6, 7.0
             target = keep_apart(k, target, pos)
             pos[k], vel[k] = step(pos[k], vel[k], target, tau, vmax, 5.0, dt)
         if t < GOAL_T + 0.2:
-            fixed = {"A" + n for n in TRACK if t + dt < TEND[n]} | ({"BGK"} if dive else set())
+            fixed = ({"A" + n for n in TRACK if t + dt < TEND[n]}
+                     | {"B" + n for n in TRACK_B if t + dt < TEND_B[n]}
+                     | ({"BGK"} if dive else set()))
             separate(pos, fixed)
 
     def track(k):
@@ -346,7 +403,7 @@ def text_outline(font_path, text, size, spacing=0.0):
         g = cmap[ord(ch)]
         if prev is not None:
             x += kern.get((prev, g), 0) * scale
-        pen = SVGPathPen(glyphs, ntos=lambda v: f"{v:.1f}".rstrip("0").rstrip("."))
+        pen = SVGPathPen(glyphs, ntos=lambda v: f"{v:.2f}".rstrip("0").rstrip("."))
         glyphs[g].draw(TransformPen(pen, (scale, 0, 0, -scale, x, 0)))
         parts.append(pen.getCommands())
         x += hmtx[g][0] * scale + spacing
@@ -360,6 +417,15 @@ def anim_translate(f, step_s):
     vals = ";".join(f"{fmt(x)},{fmt(y)}" for x, y in (f(i * step_s) for i in range(n + 1)))
     return (f'<animateTransform attributeName="transform" type="translate" dur="{fmt(T)}s" '
             f'repeatCount="indefinite" values="{vals}"/>')
+
+
+def anim_values(attr, f, step_s, kind=None):
+    n = int(round(T / step_s))
+    vals = ";".join(f(i * step_s) for i in range(n + 1))
+    if kind:
+        return (f'<animateTransform attributeName="transform" type="{kind}" dur="{fmt(T)}s" '
+                f'repeatCount="indefinite" values="{vals}"/>')
+    return f'<animate attributeName="{attr}" dur="{fmt(T)}s" repeatCount="indefinite" values="{vals}"/>'
 
 
 def pitch_svg():
@@ -394,60 +460,85 @@ def pitch_svg():
 def build(font_bold, font_regular):
     tracks = simulate()
 
+    def k_times(*ts):
+        return ";".join(fmt(t / T, 4) for t in ts)
+
     # ball trail: passes solid, carries dashed, revealed as the ball travels
     dt_b = 0.05
     nb = int(round(T / dt_b))
     pts = [ball_at(i * dt_b) for i in range(nb + 1)]
-    play_n = int(round(9.45 / dt_b))
+    play_n = int(round(NET_END / dt_b))
     cum = [0.0]
     for i in range(1, play_n + 1):
         cum.append(cum[-1] + math.dist(pts[i - 1], pts[i]))
     total = cum[-1]
     dash = total + 2.0
-    offs = []
-    for i in range(nb + 1):
-        t = i * dt_b
-        if t > PLAY_END + 1e-9:
-            offs.append(dash)
-        else:
-            offs.append(dash - cum[min(i, play_n)])
+    offs = [dash if i * dt_b > PLAY_END + 1e-9 else dash - cum[min(i, play_n)] for i in range(nb + 1)]
     reveal = "M" + "L".join(f"{fmt(x)} {fmt(y)}" for x, y in pts[: play_n + 1])
     solid, dashed = [], []
     for t0, t1, kind, _ in EVENTS:
-        if kind in ("pass", "loft", "shot", "net"):
+        if kind in ("pass", "loft", "to", "net"):
             a, b = ball_at(t0 + 1e-6), ball_at(t1 - 1e-6)
             solid.append(f"M{fmt(a[0])} {fmt(a[1])}L{fmt(b[0])} {fmt(b[1])}")
         elif kind == "carry":
             seg = [ball_at(t0 + k * (t1 - t0) / 20) for k in range(21)]
             dashed.append("M" + "L".join(f"{fmt(x)} {fmt(y)}" for x, y in seg))
 
-    def k_times(*ts):
-        return ";".join(fmt(t / T, 4) for t in ts)
-
     fade = (f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="1;1;0;0;1" '
             f'keyTimes="{k_times(0, 11.6, PLAY_END, RESET_END, T)}"/>')
+
+    def number(text):
+        d, w = text_outline(font_bold, text, 0.95)
+        return f'<path transform="translate({fmt(-w / 2, 3)},.34)" d="{d}" fill="#fff"/>'
 
     players = []
     order = [k for k in tracks if k.startswith("B")] + [k for k in tracks if k.startswith("A")]
     for k in order:
         color = {"AGK": RED_GK, "BGK": BLUE_GK}.get(k, RED if k[0] == "A" else BLUE)
         x0, y0 = tracks[k](0.0)
+        body = f'<circle r=".85" fill="{color}" stroke="#fff" stroke-width=".16"/>{number(NUMBERS[k]) if k in NUMBERS else ""}'
+        if k == "AST":  # Rooney jumps, flips and lands
+            shadow = anim_values(None, lambda t: f"{fmt(.22 + 2.2 * (rooney_lift(t) - 1))},"
+                                                 f"{fmt(.3 + 2.8 * (rooney_lift(t) - 1))}", 0.05, "translate")
+            lift = anim_values(None, lambda t: fmt(rooney_lift(t), 3), 0.05, "scale")
+            flip = (f'<g opacity="0"><animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
+                    f'values="0;0;1;1;0;0" keyTimes="{k_times(0, 7.38, 7.44, 7.72, 7.85, T)}"/>'
+                    f'<animateTransform attributeName="transform" type="rotate" dur="{fmt(T)}s" repeatCount="indefinite" '
+                    f'values="0;0;360;360" keyTimes="{k_times(0, 7.4, 7.8, T)}"/>'
+                    f'<path d="M-1.55 0A1.55 1.55 0 0 1 1.55 0" fill="none" stroke="#fff" stroke-width=".2" '
+                    f'stroke-linecap="round"/><path d="M1.1 -.35L1.55 .15L2 -.35" fill="none" stroke="#fff" '
+                    f'stroke-width=".2" stroke-linecap="round" stroke-linejoin="round"/></g>')
+            players.append(
+                f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
+                f'<g>{shadow}<circle r=".85" fill="#000" fill-opacity=".25"/></g>'
+                f'<g>{lift}{body}</g>{flip}</g>')
+            continue
         players.append(
             f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
-            f'<circle cx=".22" cy=".3" r=".85" fill="#000" fill-opacity=".25"/>'
-            f'<circle r=".85" fill="{color}" stroke="#fff" stroke-width=".16"/></g>')
+            f'<circle cx=".22" cy=".3" r=".85" fill="#000" fill-opacity=".25"/>{body}</g>')
 
-    scale_vals = ";".join(fmt(loft_scale(i * dt_b)) for i in range(nb + 1))
+    scale_vals = ";".join(fmt(ball_height(i * dt_b), 3) for i in range(nb + 1))
+    shadow_vals = ";".join(f"{fmt(.22 + 2.4 * (ball_height(i * dt_b) - 1))},{fmt(.3 + 3.0 * (ball_height(i * dt_b) - 1))}"
+                           for i in range(nb + 1))
     bx0, by0 = ball_at(0.0)
     ball = (f'<g transform="translate({fmt(bx0)},{fmt(by0)})">{anim_translate(ball_at, dt_b)}'
-            f'<ellipse cx=".22" cy=".3" rx=".6" ry=".46" fill="#000" fill-opacity=".3"/>'
+            f'<g><animateTransform attributeName="transform" type="translate" dur="{fmt(T)}s" '
+            f'repeatCount="indefinite" values="{shadow_vals}"/>'
+            f'<ellipse rx=".6" ry=".46" fill="#000" fill-opacity=".3"/></g>'
             f'<g><animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" '
             f'repeatCount="indefinite" values="{scale_vals}"/>'
             f'<circle r=".62" fill="#fff" stroke="#111827" stroke-width=".12"/></g></g>')
 
-    gx, gy = 105.6, 31.0
+    # impact flash at the overhead kick, ripple when the ball hits the net
+    cx, cy = CONTACT_P
+    flash = (f'<circle cx="{fmt(cx)}" cy="{fmt(cy)}" r="0" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width=".16">'
+             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;2.1;2.1" '
+             f'keyTimes="{k_times(0, CONTACT_T, CONTACT_T + 0.3, T)}"/>'
+             f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;0;0" '
+             f'keyTimes="{k_times(0, CONTACT_T - 0.01, CONTACT_T, CONTACT_T + 0.3, T)}"/></circle>')
+    gx, gy = 105.6, GOAL_P[1]
     g0, g1 = GOAL_T, GOAL_T + 0.8
-    ripple = (f'<circle cx="{gx}" cy="{gy}" r="0" fill="none" stroke="#fff" stroke-width=".18">'
+    ripple = (f'<circle cx="{gx}" cy="{fmt(gy)}" r="0" fill="none" stroke="#fff" stroke-width=".18">'
               f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;3.4;3.4" '
               f'keyTimes="{k_times(0, g0, g1, T)}"/>'
               f'<animate attributeName="stroke-opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
@@ -476,11 +567,14 @@ def build(font_bold, font_regular):
         f'<path transform="translate({fmt((W - name_w) / 2)},{fmt(py + 70)})" d="{name_d}"/>'
         f'<path transform="translate({fmt((W - tag_w) / 2)},{fmt(py + 111)})" d="{tag_d}" fill-opacity=".92"/>'
         f'</g>')
+    cap_d, _ = text_outline(font_regular, CAPTION, 17, spacing=0.3)
+    caption = (f'<path transform="translate(26,{fmt(H - 22)})" d="{cap_d}" fill="#fff" fill-opacity=".72" '
+               f'filter="url(#shadow)"/>')
 
     tx, ty = -X0 * S, -Y0 * S
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-labelledby="title desc">
 <title id="title">Songyun Jeong, Sports Analytics × Machine Learning</title>
-<desc id="desc">A top-down soccer pitch where players move like tracking data while a passing move ends in a goal.</desc>
+<desc id="desc">A top-down, dot-style recreation of Wayne Rooney's bicycle kick for Manchester United against Manchester City in February 2011.</desc>
 <defs>
 <clipPath id="frame"><rect width="{W}" height="{H}" rx="18"/></clipPath>
 <radialGradient id="vignette" cx="50%" cy="50%" r="72%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".38"/></radialGradient>
@@ -493,11 +587,13 @@ def build(font_bold, font_regular):
 {trail}
 {"".join(players)}
 {ball}
+{flash}
 {ripple}
 </g>
 </g>
 <rect width="{W}" height="{H}" fill="url(#vignette)"/>
 {title}
+{caption}
 </g>
 </svg>
 """

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/banner.svg" width="100%" alt="Songyun Jeong, Sports Analytics × Machine Learning. A soccer pitch where players move like tracking data while a passing move ends in a goal."/>
+  <img src="./assets/banner.svg" width="100%" alt="Songyun Jeong, Sports Analytics × Machine Learning. A dot-style recreation of Rooney's bicycle kick against Manchester City in 2011."/>
 </p>
 
 <p align="center">
