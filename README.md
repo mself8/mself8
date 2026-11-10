@@ -4,7 +4,7 @@
 
 ## About
 
-I'm passionate about turning complex data into decisions people can trust, especially in sports. As an undergraduate researcher at the CIDA Lab, University of Seoul, I use soccer event and tracking data to build models for lineup recommendation and offline evaluation, as well as diffusion models that generate player movement. I also develop LLM agents that answer from retrieved documents. My goal is to build AI products that prove their value through careful evaluation and make a real difference for teams, businesses, and users.
+I'm passionate about turning complex data into decisions people can trust, especially in sports. As an undergraduate researcher at the CIDA Lab, University of Seoul, I use soccer event data (tabular) and tracking data (time-series) to build models for lineup recommendation and offline evaluation, as well as diffusion models that generate player movement. I also develop LLM agents that answer from retrieved documents. My goal is to build AI products that prove their value through careful evaluation and make a real difference for teams, businesses, and users.
 
 ## Publications & Talks
 
