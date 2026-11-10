@@ -3,14 +3,14 @@
 
 A top-down, dot-style homage to Rooney's bicycle kick (Man Utd 2-1 Man City,
 12 Feb 2011): a long ball out to Nani, his cross clips a defender and loops to
-the far side of the box, Rooney's overhead kick flies into the top corner, and
+the far side of the box, Rooney's overhead kick flies into the top corner at Hart's left, and
 he runs to the corner flag with his arms spread wide. Positions are a rough
 reconstruction from the broadcast, not tracking data.
 
 The animation is plain SMIL, so it plays inside GitHub's <img> rendering.
 Text is converted to outlines, so the banner looks the same on every machine.
 
-    python3 scripts/make_banner.py -o assets/banner.svg [--pose spotlight|figure]
+    python3 scripts/make_banner.py -o assets/banner.svg
 """
 import argparse
 import math
@@ -22,7 +22,7 @@ from fontTools.ttLib import TTFont
 # ------------------------------------------------------------------ layout
 T = 18.0                                  # loop length (s)
 W = 1200                                  # banner width (px)
-X0, X1, Y0, Y1 = -4.0, 109.0, 22.6, 68.8  # visible window of a 105 x 68 m pitch (camera side at the bottom)
+X0, X1, Y0, Y1 = -4.0, 109.0, -1.5, 69.5  # the whole 105 x 68 m pitch (camera side at the bottom)
 S = W / (X1 - X0)                         # px per metre
 H = round((Y1 - Y0) * S)
 PLAY_END, RESET_END = 16.4, 17.2          # fade out, reset while hidden, fade back in
@@ -30,7 +30,7 @@ FADE_START = PLAY_END - 0.6
 
 CROSS_T, DEFLECT_T = 6.2, 6.5             # Nani crosses, the ball clips the full-back
 CONTACT_T = 7.9                           # overhead kick
-GOAL_T, NET_END = 8.25, 8.55
+GOAL_T, NET_END = 8.4, 8.7
 POSE_T = 14.3                             # arms spread at the corner flag
 
 NAME = "SONGYUN JEONG"
@@ -38,7 +38,7 @@ TAGLINE = "Sports Analytics × Machine Learning"
 CAPTION = "Rooney 78′ · Man Utd 2–1 Man City · Feb 2011"
 
 RED, RED_GK, BLUE, BLUE_GK = "#da291c", "#facc15", "#6cabdd", "#a855f7"
-NUMBERS = {"AST": "10", "ARW": "17"}      # Rooney, Nani
+NUMBERS = {"AST": "10", "ARW": "17", "ADM": "18"}  # Rooney, Nani, Scholes
 
 
 def clamp(v, lo, hi):
@@ -130,7 +130,7 @@ def _deflect_point():
 
 DEFLECT_P = _deflect_point()
 CONTACT_P = (TRACK["ST"](CONTACT_T)[0] + 0.45, TRACK["ST"](CONTACT_T)[1] + 0.1)
-GOAL_P, NET_P = (105.0, 30.9), (106.3, 31.2)   # top corner at the far post (seen from the camera)
+GOAL_P, NET_P = (105.0, 37.1), (106.3, 36.8)   # top corner at Hart's left (the lower post here)
 POSE_P = TRACK["ST"](POSE_T)
 
 # ball: (start, end, kind, arg)
@@ -355,14 +355,14 @@ def simulate(dt=0.02):
                 pos[k], vel[k] = (x2, y2), ((x2 - x1) / dt, (y2 - y1) / dt)
                 continue
             if n == "GK":
-                if t >= CONTACT_T - 0.05:  # barely reacts: the volley is too quick
+                if t >= CONTACT_T - 0.05:  # stands near his right post, too late to reach the volley
                     if dive is None:
                         x0, y0 = pos[k]
-                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (GOAL_T, 103.6, 32.7),
-                                        (GOAL_T + 0.6, 103.7, 32.5), (PLAY_END, 103.7, 32.5)])
+                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (CONTACT_T + 0.25, 103.9, 32.4), (GOAL_T, 104.0, 32.9),
+                                        (GOAL_T + 0.6, 103.8, 33.4), (PLAY_END, 103.8, 33.4)])
                     pos[k] = dive(t + dt)
                     continue
-                pos[k], vel[k] = step(pos[k], vel[k], b_target(n, ball), 0.3, 5.0, 8.0, dt)
+                pos[k], vel[k] = step(pos[k], vel[k], b_target(n, def_ball), 0.3, 5.0, 8.0, dt)
                 continue
             if t >= GOAL_T:
                 target, tau, vmax = pos[k], 0.6, 2.5
@@ -448,21 +448,23 @@ def pitch_svg():
     for i in range(-1, 22):
         out.append(f'<rect x="{fmt(i * w)}" y="{fmt(Y0 - 1)}" width="{fmt(w + 0.02)}" '
                    f'height="{fmt(Y1 - Y0 + 2)}" fill="{"#3e8e48" if i % 2 else "#378343"}"/>')
-    # beyond the touchline
+    # beyond the touchlines
+    out.append(f'<rect x="-6" y="{fmt(Y0 - 1)}" width="117" height="{fmt(1 - Y0)}" fill="#2f6b38"/>')
     out.append(f'<rect x="-6" y="68" width="117" height="{fmt(Y1 - 68 + 2)}" fill="#2f6b38"/>')
     ln = 'fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".15"'
-    top = Y0 - 1
     out.append(f'<g {ln}>')
-    out.append(f'<path d="M0 {fmt(top)}V68M105 {fmt(top)}V68M52.5 {fmt(top)}V68M0 68H105"/>')
+    out.append('<path d="M0 0H105V68H0ZM52.5 0V68"/>')
     out.append('<circle cx="52.5" cy="34" r="9.15"/>')
     out.append('<path d="M0 13.84H16.5V54.16H0M105 13.84H88.5V54.16H105"/>')
     out.append('<path d="M0 24.84H5.5V43.16H0M105 24.84H99.5V43.16H105"/>')
     out.append('<path d="M16.5 26.688A9.15 9.15 0 0 1 16.5 41.312M88.5 26.688A9.15 9.15 0 0 0 88.5 41.312"/>')
-    out.append('<path d="M1 68A1 1 0 0 0 0 67M104 68A1 1 0 0 1 105 67"/>')   # corner arcs
+    out.append('<path d="M1 68A1 1 0 0 0 0 67M104 68A1 1 0 0 1 105 67M0 1A1 1 0 0 0 1 0M105 1A1 1 0 0 1 104 0"/>')  # corner arcs
     out.append("</g>")
     out.append('<g fill="#fff" fill-opacity=".85"><circle cx="52.5" cy="34" r=".3"/>'
                '<circle cx="11" cy="34" r=".25"/><circle cx="94" cy="34" r=".25"/></g>')
-    out.append('<path d="M105 68V66.4L106.3 66.9L105 67.4" fill="#facc15" stroke="#fff" stroke-width=".08"/>')  # flag
+    out.append('<g fill="#facc15" stroke="#fff" stroke-width=".08">'
+               '<path d="M105 68V66.4L106.3 66.9L105 67.4"/><path d="M0 68V66.4L-1.3 66.9L0 67.4"/>'
+               '<path d="M105 0V-1.4L106.3 -.9L105 -.4"/><path d="M0 0V-1.4L-1.3 -.9L0 -.4"/></g>')  # corner flags
     net = []
     for gx0 in (-2.0, 105.0):
         for k in range(1, 4):
@@ -486,10 +488,10 @@ def pose_layers(pose):
             f'values="0.2,1;0.2,1;1,1;1,1" keyTimes="{k_times(0, t0, t1, T)}"/>'
             f'<path d="M-2.5 0H2.5" stroke="#fff" stroke-width=".42" stroke-linecap="round"/>'
             f'<path d="M-2.5 0H2.5" stroke="{RED}" stroke-width=".2" stroke-linecap="round"/></g></g>')
-    dim = (f'<mask id="spot" maskUnits="userSpaceOnUse" x="-10" y="0" width="130" height="80">'
-           f'<rect x="-10" y="0" width="130" height="80" fill="#fff"/>'
+    dim = (f'<mask id="spot" maskUnits="userSpaceOnUse" x="-10" y="-10" width="130" height="90">'
+           f'<rect x="-10" y="-10" width="130" height="90" fill="#fff"/>'
            f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="7" fill="url(#hole)"/></mask>'
-           f'<rect x="-10" y="0" width="130" height="80" fill="#000" opacity="0" mask="url(#spot)">'
+           f'<rect x="-10" y="-10" width="130" height="90" fill="#000" opacity="0" mask="url(#spot)">'
            f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
            f'values="0;0;.5;.5" keyTimes="{k_times(0, t0 - 0.1, t1 + 0.5, T)}"/></rect>')
     glow = (f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="5.5" fill="url(#light)" opacity="0">'
@@ -511,7 +513,7 @@ def pose_layers(pose):
     return dim, arms, figure
 
 
-def build(font_bold, font_regular, pose="spotlight"):
+def build(font_bold, font_regular, pose="figure"):
     tracks = simulate()
 
     # ball trail: passes solid, carries dashed, revealed as the ball travels
@@ -659,8 +661,8 @@ def build(font_bold, font_regular, pose="spotlight"):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("-o", "--out", default="assets/banner.svg")
-    ap.add_argument("--pose", choices=["spotlight", "figure"], default="spotlight",
-                    help="celebration: arms + spotlight, or also a small arms-wide pictogram")
+    ap.add_argument("--pose", choices=["spotlight", "figure"], default="figure",
+                    help="celebration: arms + spotlight, plus (figure) a small arms-wide, face-up pictogram")
     ap.add_argument("--font-bold", default="/root/.fonts/Paperlogy-7Bold.ttf")
     ap.add_argument("--font-regular", default="/root/.fonts/Paperlogy-4Regular.ttf")
     args = ap.parse_args()
