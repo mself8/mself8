@@ -31,7 +31,7 @@ I'm passionate about turning complex data into decisions people can trust, espec
 ## Publications & Talks
 
 - **Recommending the Starting Eleven: Counterfactual Lineups from Event and Tracking Data**  
-  First author · MIT Sloan Sports Analytics Conference 2027, Research Paper Competition · [Code](https://github.com/mself8/Recommending-the-Starting-Eleven-Counterfactual-Lineups-from-Event-and-Tracking-Data)
+  First author · MIT Sloan Sports Analytics Conference 2027, Research Paper Competition (abstract accepted) · [Code](https://github.com/mself8/Recommending-the-Starting-Eleven-Counterfactual-Lineups-from-Event-and-Tracking-Data)
 - **Soccer Lineup Optimization based on Spatial Action Values**  
   First author · KCC 2026 · [Code](https://github.com/mself8/spatial-vaep-team-builder-v1)
 - **Spatial Action Value Based Lineup Optimization in Soccer via Differentiable Player Selection**  
@@ -81,7 +81,7 @@ I'm passionate about turning complex data into decisions people can trust, espec
 ## Awards
 
 - `2026.10` **Innovation Award** (NST Chairman's Award) · NAIS AI Hackathon 2026
-- `2026.08` **1st Place** · AI Career Path Program
-- `2026.06` **Excellence Award** (Undergraduate Division) · KCC 2026
-- `2026.01` **1st Place** (1 of 38 teams) · K League × UOS Open AI Competition, Track 2 (DACON) · team lead
+- `2026.09` **1st Place** · AI Career Path Program
+- `2026.07` **Excellence Award** (Undergraduate Division) · KCC 2026
+- `2026.01` **1st Place** · K League × UOS Open AI Competition, Track 2 (DACON) · team lead
 - `2026.01` **2nd Place** · UOS Global Startup Camp
