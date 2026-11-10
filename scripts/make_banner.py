@@ -39,6 +39,7 @@ CAPTION = "Rooney 78′ · Man Utd 2–1 Man City · Feb 2011"
 
 RED, RED_GK, BLUE, BLUE_GK = "#da291c", "#facc15", "#6cabdd", "#a855f7"
 NUMBERS = {"AST": "10", "ARW": "17", "ADM": "18"}  # Rooney, Nani, Scholes
+R, BALL_R = 1.2, 0.75                      # drawn radius of a player dot and the ball (m)
 
 
 def clamp(v, lo, hi):
@@ -253,7 +254,7 @@ def b_target(name, ball):
     return (min(bx + dx, cap), clamp(by + shift * (yb - 34.0), 14.0, 58.0))
 
 
-def keep_apart(k, target, pos, gap=2.4):
+def keep_apart(k, target, pos, gap=3.2):
     """Nudge a target away from nearby players so dots do not overlap."""
     tx, ty = target
     px, py = pos[k]
@@ -265,7 +266,7 @@ def keep_apart(k, target, pos, gap=2.4):
     return (tx, ty)
 
 
-def separate(pos, fixed, gap=1.9):
+def separate(pos, fixed, gap=2.6):
     """Hard minimum distance between dots; scripted players are never moved."""
     keys = list(pos)
     for _ in range(2):
@@ -358,8 +359,8 @@ def simulate(dt=0.02):
                 if t >= CONTACT_T - 0.05:  # stands near his right post, too late to reach the volley
                     if dive is None:
                         x0, y0 = pos[k]
-                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (CONTACT_T + 0.25, 103.9, 32.4), (GOAL_T, 104.0, 32.9),
-                                        (GOAL_T + 0.6, 103.8, 33.4), (PLAY_END, 103.8, 33.4)])
+                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (CONTACT_T + 0.25, 104.0, 31.9), (GOAL_T, 104.1, 32.3),
+                                        (GOAL_T + 0.6, 103.9, 32.8), (PLAY_END, 103.9, 32.8)])
                     pos[k] = dive(t + dt)
                     continue
                 pos[k], vel[k] = step(pos[k], vel[k], b_target(n, def_ball), 0.3, 5.0, 8.0, dt)
@@ -402,7 +403,8 @@ def simulate(dt=0.02):
 
 
 # -------------------------------------------------------------------- text
-def text_outline(font_path, text, size, spacing=0.0):
+def glyph_outlines(font_path, text, size, spacing=0.0):
+    """Outline each character: [(path d, x offset, advance)], total width."""
     font = TTFont(font_path)
     glyphs, cmap, hmtx = font.getGlyphSet(), font.getBestCmap(), font["hmtx"]
     scale = size / font["head"].unitsPerEm
@@ -417,10 +419,15 @@ def text_outline(font_path, text, size, spacing=0.0):
             x += kern.get((prev, g), 0) * scale
         pen = SVGPathPen(glyphs, ntos=lambda v: f"{v:.2f}".rstrip("0").rstrip("."))
         glyphs[g].draw(TransformPen(pen, (scale, 0, 0, -scale, x, 0)))
-        parts.append(pen.getCommands())
+        parts.append((pen.getCommands(), x, hmtx[g][0] * scale))
         x += hmtx[g][0] * scale + spacing
         prev = g
-    return " ".join(p for p in parts if p), x - spacing
+    return parts, x - spacing
+
+
+def text_outline(font_path, text, size, spacing=0.0):
+    parts, width = glyph_outlines(font_path, text, size, spacing)
+    return " ".join(d for d, _, _ in parts if d), width
 
 
 # --------------------------------------------------------------------- svg
@@ -486,8 +493,8 @@ def pose_layers(pose):
     arms = (f'<g opacity="0">{show}'
             f'<g><animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" repeatCount="indefinite" '
             f'values="0.2,1;0.2,1;1,1;1,1" keyTimes="{k_times(0, t0, t1, T)}"/>'
-            f'<path d="M-2.5 0H2.5" stroke="#fff" stroke-width=".42" stroke-linecap="round"/>'
-            f'<path d="M-2.5 0H2.5" stroke="{RED}" stroke-width=".2" stroke-linecap="round"/></g></g>')
+            f'<path d="M-3.4 0H3.4" stroke="#fff" stroke-width=".52" stroke-linecap="round"/>'
+            f'<path d="M-3.4 0H3.4" stroke="{RED}" stroke-width=".26" stroke-linecap="round"/></g></g>')
     dim = (f'<mask id="spot" maskUnits="userSpaceOnUse" x="-10" y="-10" width="130" height="90">'
            f'<rect x="-10" y="-10" width="130" height="90" fill="#fff"/>'
            f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="7" fill="url(#hole)"/></mask>'
@@ -511,6 +518,51 @@ def pose_layers(pose):
                   f'<g stroke="#fde68a" stroke-width=".14" stroke-linecap="round">'
                   f'<path d="M.5 -2.6L.9 -3.0M1.1 -2.35L1.6 -2.6M.0 -2.75L.05 -3.15"/></g></g>')
     return dim, arms, figure
+
+
+def goal_layers(font_bold):
+    """GOAL!: light bursts from the goal mouth and the word pops in above the goal, letter by letter."""
+    g0 = GOAL_T
+    gx, gy = GOAL_P
+    rays = []
+    for i in range(11):
+        a = math.radians(110 + 14 * i)
+        r0, r1 = 1.8, (3.7 if i % 2 == 0 else 3.0)
+        rays.append(f"M{fmt(gx + r0 * math.cos(a))} {fmt(gy + r0 * math.sin(a))}"
+                    f"L{fmt(gx + r1 * math.cos(a))} {fmt(gy + r1 * math.sin(a))}")
+    burst = (f'<circle cx="{fmt(gx)}" cy="{fmt(gy)}" r="0" fill="url(#goalglow)" opacity="0">'
+             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;9;9" '
+             f'keyTimes="{k_times(0, g0, g0 + 0.5, T)}"/>'
+             f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;0;0" '
+             f'keyTimes="{k_times(0, g0 - 0.01, g0, g0 + 0.65, T)}"/></circle>'
+             f'<g transform="translate({fmt(gx)},{fmt(gy)})" opacity="0">'
+             f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;0;0" '
+             f'keyTimes="{k_times(0, g0 - 0.01, g0 + 0.05, g0 + 0.7, T)}"/>'
+             f'<g><animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" repeatCount="indefinite" '
+             f'values="0.6;0.6;2;2" keyTimes="{k_times(0, g0, g0 + 0.7, T)}" calcMode="spline" '
+             f'keySplines="0 0 1 1;.2 .7 .4 1;0 0 1 1"/>'
+             f'<path transform="translate({fmt(-gx)},{fmt(-gy)})" d="{"".join(rays)}" fill="none" stroke="#fde68a" '
+             f'stroke-width=".2" stroke-linecap="round"/></g></g>')
+
+    size, cx, base = 92, 980, 128            # screen px: above the penalty box, clear of the players
+    parts, width = glyph_outlines(font_bold, "GOAL!", size, spacing=4)
+    half_cap = 700 / 900 * size / 2           # Paperlogy cap height is 700/900 em
+    letters = []
+    for i, (d, x, adv) in enumerate(parts):
+        t0 = g0 + 0.05 + 0.06 * i
+        mid = x + adv / 2
+        letters.append(
+            f'<g transform="translate({fmt(mid)},{fmt(-half_cap)})"><g transform="scale(0)">'
+            f'<animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" repeatCount="indefinite" '
+            f'values="0;0;1.28;.94;1;1" keyTimes="{k_times(0, t0, t0 + 0.16, t0 + 0.26, t0 + 0.34, T)}" '
+            f'calcMode="spline" keySplines="0 0 1 1;.2 .7 .4 1;.4 0 .6 1;.4 0 .6 1;0 0 1 1"/>'
+            f'<g transform="translate({fmt(-mid)},{fmt(half_cap)})">'
+            f'<path transform="translate(4,4.5)" d="{d}" fill="{RED}"/><path d="{d}" fill="#fff"/></g></g></g>')
+    out0, out1 = 11.3, 11.7
+    word = (f'<g opacity="0" filter="url(#shadow)" transform="translate({fmt(cx - width / 2)},{base}) skewX(-10)">'
+            f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;1;0;0" '
+            f'keyTimes="{k_times(0, g0, g0 + 0.01, out0, out1, T)}"/>{"".join(letters)}</g>')
+    return burst, word
 
 
 def build(font_bold, font_regular, pose="figure"):
@@ -541,36 +593,37 @@ def build(font_bold, font_regular, pose="figure"):
             f'keyTimes="{k_times(0, FADE_START, PLAY_END, RESET_END, T)}"/>')
 
     def number(text):
-        d, w = text_outline(font_bold, text, 0.95)
-        return f'<path transform="translate({fmt(-w / 2, 3)},.34)" d="{d}" fill="#fff"/>'
+        d, w = text_outline(font_bold, text, 1.32)
+        return f'<path transform="translate({fmt(-w / 2, 3)},.47)" d="{d}" fill="#fff"/>'
 
     dim, arms, figure = pose_layers(pose)
+    burst, goal_word = goal_layers(font_bold)
     players = []
     order = [k for k in tracks if k.startswith("B")] + [k for k in tracks if k.startswith("A") and k != "AST"] + ["AST"]
     for k in order:
         color = {"AGK": RED_GK, "BGK": BLUE_GK}.get(k, RED if k[0] == "A" else BLUE)
         x0, y0 = tracks[k](0.0)
-        body = f'<circle r=".85" fill="{color}" stroke="#fff" stroke-width=".16"/>{number(NUMBERS[k]) if k in NUMBERS else ""}'
+        body = f'<circle r="{R}" fill="{color}" stroke="#fff" stroke-width=".2"/>{number(NUMBERS[k]) if k in NUMBERS else ""}'
         if k == "AST":  # Rooney jumps, flips, lands, then spreads his arms at the corner
-            shadow = anim_transform("translate", lambda t: f"{fmt(.22 + 2.2 * (rooney_lift(t) - 1))},"
-                                                           f"{fmt(.3 + 2.8 * (rooney_lift(t) - 1))}", 0.05)
+            shadow = anim_transform("translate", lambda t: f"{fmt(.3 + 2.2 * (rooney_lift(t) - 1))},"
+                                                           f"{fmt(.4 + 2.8 * (rooney_lift(t) - 1))}", 0.05)
             lift = anim_transform("scale", lambda t: fmt(rooney_lift(t), 3), 0.05)
             c = CONTACT_T
             flip = (f'<g opacity="0"><animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
                     f'values="0;0;1;1;0;0" keyTimes="{k_times(0, c - 0.22, c - 0.16, c + 0.12, c + 0.25, T)}"/>'
                     f'<animateTransform attributeName="transform" type="rotate" dur="{fmt(T)}s" repeatCount="indefinite" '
                     f'values="0;0;360;360" keyTimes="{k_times(0, c - 0.2, c + 0.2, T)}"/>'
-                    f'<path d="M-1.55 0A1.55 1.55 0 0 1 1.55 0" fill="none" stroke="#fff" stroke-width=".2" '
-                    f'stroke-linecap="round"/><path d="M1.1 -.35L1.55 .15L2 -.35" fill="none" stroke="#fff" '
-                    f'stroke-width=".2" stroke-linecap="round" stroke-linejoin="round"/></g>')
+                    f'<path d="M-2.05 0A2.05 2.05 0 0 1 2.05 0" fill="none" stroke="#fff" stroke-width=".24" '
+                    f'stroke-linecap="round"/><path d="M1.55 -.4L2.05 .15L2.55 -.4" fill="none" stroke="#fff" '
+                    f'stroke-width=".24" stroke-linecap="round" stroke-linejoin="round"/></g>')
             players.append(
                 f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
-                f'<g>{shadow}<circle r=".85" fill="#000" fill-opacity=".25"/></g>'
+                f'<g>{shadow}<circle r="{R}" fill="#000" fill-opacity=".25"/></g>'
                 f'{arms}<g>{lift}{body}</g>{flip}</g>')
             continue
         players.append(
             f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
-            f'<circle cx=".22" cy=".3" r=".85" fill="#000" fill-opacity=".25"/>{body}</g>')
+            f'<circle cx=".3" cy=".4" r="{R}" fill="#000" fill-opacity=".25"/>{body}</g>')
 
     scale_vals = ";".join(fmt(ball_height(i * dt_b), 3) for i in range(nb + 1))
     shadow_vals = ";".join(f"{fmt(.22 + 2.4 * (ball_height(i * dt_b) - 1))},{fmt(.3 + 3.0 * (ball_height(i * dt_b) - 1))}"
@@ -579,15 +632,15 @@ def build(font_bold, font_regular, pose="figure"):
     ball = (f'<g transform="translate({fmt(bx0)},{fmt(by0)})">{anim_translate(ball_at, dt_b)}'
             f'<g><animateTransform attributeName="transform" type="translate" dur="{fmt(T)}s" '
             f'repeatCount="indefinite" values="{shadow_vals}"/>'
-            f'<ellipse rx=".6" ry=".46" fill="#000" fill-opacity=".3"/></g>'
+            f'<ellipse rx="{fmt(BALL_R * .97)}" ry="{fmt(BALL_R * .74)}" fill="#000" fill-opacity=".3"/></g>'
             f'<g><animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" '
             f'repeatCount="indefinite" values="{scale_vals}"/>'
-            f'<circle r=".62" fill="#fff" stroke="#111827" stroke-width=".12"/></g></g>')
+            f'<circle r="{BALL_R}" fill="#fff" stroke="#111827" stroke-width=".14"/></g></g>')
 
     # impact flash at the overhead kick, ripple when the ball hits the net
     cx, cy = CONTACT_P
     flash = (f'<circle cx="{fmt(cx)}" cy="{fmt(cy)}" r="0" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width=".16">'
-             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;2.1;2.1" '
+             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;2.7;2.7" '
              f'keyTimes="{k_times(0, CONTACT_T, CONTACT_T + 0.3, T)}"/>'
              f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;0;0" '
              f'keyTimes="{k_times(0, CONTACT_T - 0.01, CONTACT_T, CONTACT_T + 0.3, T)}"/></circle>')
@@ -629,11 +682,12 @@ def build(font_bold, font_regular, pose="figure"):
     tx, ty = -X0 * S, -Y0 * S
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-labelledby="title desc">
 <title id="title">Songyun Jeong, Sports Analytics × Machine Learning</title>
-<desc id="desc">A top-down, dot-style recreation of Wayne Rooney's bicycle kick for Manchester United against Manchester City in February 2011, ending with his arms-wide celebration at the corner flag.</desc>
+<desc id="desc">A top-down, dot-style recreation of Wayne Rooney's bicycle kick for Manchester United against Manchester City in February 2011: a GOAL! splash as the ball hits the net, then his arms-wide celebration at the corner flag.</desc>
 <defs>
 <clipPath id="frame"><rect width="{W}" height="{H}" rx="18"/></clipPath>
 <radialGradient id="vignette" cx="50%" cy="50%" r="72%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".38"/></radialGradient>
 <radialGradient id="hole"><stop offset="45%" stop-color="#000"/><stop offset="100%" stop-color="#fff"/></radialGradient>
+<radialGradient id="goalglow"><stop offset="0%" stop-color="#fff" stop-opacity=".75"/><stop offset="45%" stop-color="#fde68a" stop-opacity=".3"/><stop offset="100%" stop-color="#fde68a" stop-opacity="0"/></radialGradient>
 <radialGradient id="light"><stop offset="0%" stop-color="#fffbe6" stop-opacity=".55"/><stop offset="100%" stop-color="#fffbe6" stop-opacity="0"/></radialGradient>
 <filter id="shadow" x="-10%" y="-40%" width="120%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#000" flood-opacity=".45"/></filter>
 </defs>
@@ -647,11 +701,13 @@ def build(font_bold, font_regular, pose="figure"):
 {ball}
 {flash}
 {ripple}
+{burst}
 {figure}
 </g>
 </g>
 <rect width="{W}" height="{H}" fill="url(#vignette)"/>
 {title}
+{goal_word}
 {caption}
 </g>
 </svg>
