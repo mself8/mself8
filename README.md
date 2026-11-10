@@ -46,9 +46,9 @@ I'm passionate about turning complex data into decisions people can trust, espec
 <table>
   <tr>
     <td width="50%" valign="top">
-      <a href="https://github.com/mself8/intent-based-counterfactual-trajectory"><b>Counterfactual Player Trajectories</b></a><br/>
-      Generates how players would have moved without a pass, to evaluate pass timing. Compares diffusion with intent-conditioned generation on tracking data.<br/>
-      <sub>PyTorch · Diffusion</sub>
+      <a href="https://github.com/mself8/k-track2"><b>Set-Piece Danger Maps on Broadcast Video</b></a><br/>
+      Maps broadcast pixels to pitch coordinates with homography and overlays VAEP-based danger heatmaps on K League footage.<br/>
+      <sub>OpenCV · VAEP</sub>
     </td>
     <td width="50%" valign="top">
       <a href="https://github.com/mself8/irb-route-agent"><b>Research Ethics Review Routing Agent</b></a><br/>
@@ -63,18 +63,13 @@ I'm passionate about turning complex data into decisions people can trust, espec
       <sub>vLLM · LLM-as-a-judge</sub>
     </td>
     <td width="50%" valign="top">
-      <a href="https://github.com/mself8/k-track2"><b>Set-Piece Danger Maps on Broadcast Video</b></a><br/>
-      Maps broadcast pixels to pitch coordinates with homography and overlays VAEP-based danger heatmaps on K League footage.<br/>
-      <sub>OpenCV · VAEP</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
       <a href="https://github.com/mself8/wildfire-arrival-time-ca"><b>Wildfire Spread Simulator</b></a><br/>
       Arrival-time cellular automaton trained on U.S. and Portuguese fires and applied to large Korean wildfires.<br/>
       <sub>Cellular automata · Geospatial</sub>
     </td>
-    <td width="50%" valign="top">
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
       <a href="https://github.com/mself8/satellite-change-detection"><b>Satellite Change Detection</b></a><br/>
       Multi-sensor mapping of the Grindavík eruption lava field and the Incheon Airport expansion.<br/>
       <sub>Sentinel-1/2 · Deep learning · Web map</sub>
