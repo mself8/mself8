@@ -7,11 +7,11 @@
   <a href="https://mail.google.com/mail/?view=cm&fs=1&to=a97281337@gmail.com"><img src="https://img.shields.io/badge/Email-EA4335?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/></a>
 </p>
 
-## About
+## <picture><source media="(prefers-color-scheme: dark)" srcset="./assets/headings/about-dark.svg"><img src="./assets/headings/about-light.svg" alt="About" height="36"></picture>
 
 I'm passionate about turning complex data into decisions people can trust, especially in sports. As an undergraduate researcher at the CIDA Lab, University of Seoul, I use soccer event data (tabular) and tracking data (time-series) to build models for lineup recommendation and offline evaluation, as well as diffusion models that generate player movement. I also develop LLM agents that answer from retrieved documents. My goal is to build AI products that prove their value through careful evaluation and make a real difference for teams, businesses, and users.
 
-## Tech Stack
+## <picture><source media="(prefers-color-scheme: dark)" srcset="./assets/headings/tech-stack-dark.svg"><img src="./assets/headings/tech-stack-light.svg" alt="Tech Stack" height="36"></picture>
 
 <p>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/></a>
@@ -28,7 +28,7 @@ I'm passionate about turning complex data into decisions people can trust, espec
   <a href="https://d3js.org/"><img src="https://img.shields.io/badge/D3-F9A03C?style=for-the-badge&logo=d3&logoColor=white" alt="D3"/></a>
 </p>
 
-## Publications & Talks
+## <picture><source media="(prefers-color-scheme: dark)" srcset="./assets/headings/publications-dark.svg"><img src="./assets/headings/publications-light.svg" alt="Publications &amp; Talks" height="36"></picture>
 
 - **Recommending the Starting Eleven: Counterfactual Lineups from Event and Tracking Data**  
   First author · MIT Sloan Sports Analytics Conference 2027, Research Paper Competition (abstract accepted) · [Code](https://github.com/mself8/Recommending-the-Starting-Eleven-Counterfactual-Lineups-from-Event-and-Tracking-Data)
@@ -37,7 +37,7 @@ I'm passionate about turning complex data into decisions people can trust, espec
 - **Spatial Action Value Based Lineup Optimization in Soccer via Differentiable Player Selection**  
   Oral presentation · NU Sports ML Workshop, Nagoya University, 2026 · [Code](https://github.com/mself8/spatial-vaep-team-builder-v2)
 
-## Featured Projects
+## <picture><source media="(prefers-color-scheme: dark)" srcset="./assets/headings/projects-dark.svg"><img src="./assets/headings/projects-light.svg" alt="Featured Projects" height="36"></picture>
 
 <table>
   <tr>
@@ -78,7 +78,7 @@ I'm passionate about turning complex data into decisions people can trust, espec
   </tr>
 </table>
 
-## Awards
+## <picture><source media="(prefers-color-scheme: dark)" srcset="./assets/headings/awards-dark.svg"><img src="./assets/headings/awards-light.svg" alt="Awards" height="36"></picture>
 
 - `2026.10` **Innovation Award** (NST Chairman's Award) · NAIS AI Hackathon 2026
 - `2026.09` **1st Place** · AI Career Path Program
