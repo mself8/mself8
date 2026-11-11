@@ -39,7 +39,7 @@ CAPTION = "Rooney 78′ · Man Utd 2–1 Man City · Feb 2011"
 
 RED, RED_GK, BLUE, BLUE_GK = "#da291c", "#facc15", "#6cabdd", "#a855f7"
 NUMBERS = {"AST": "10", "ARW": "17", "ADM": "18"}  # Rooney, Nani, Scholes
-R, BALL_R = 1.2, 0.75                      # drawn radius of a player dot and the ball (m)
+R, BALL_R = 1.5, 0.9                       # drawn radius of a player dot and the ball (m)
 
 
 def clamp(v, lo, hi):
@@ -159,7 +159,7 @@ B_BASE = {  # blue 4-4-2 block when the ball is at the centre spot
     "M1": (71.0, 19.0), "M2": (69.5, 29.5), "M3": (69.5, 38.5), "M4": (71.0, 49.0),
     "F1": (57.0, 30.0), "F2": (58.0, 39.0),
 }
-CELEBRATE = ["RW", "LCM", "RCM", "DM"]
+HUDDLE = {"RW": (5.5, 205), "DM": (5.5, 240), "RCM": (9.0, 195), "LCM": (9.0, 225)}  # (m, deg) from Rooney
 AIR_HOLD = {  # where the box defenders stand while the deflected cross loops over
     "D2": (96.8, 29.6), "D3": (97.6, 34.4), "D1": (92.0, 22.0),
     "M4": (80.5, 49.5), "M3": (86.5, 38.0), "M2": (85.0, 32.5),
@@ -254,7 +254,7 @@ def b_target(name, ball):
     return (min(bx + dx, cap), clamp(by + shift * (yb - 34.0), 14.0, 58.0))
 
 
-def keep_apart(k, target, pos, gap=3.2):
+def keep_apart(k, target, pos, gap=3.8):
     """Nudge a target away from nearby players so dots do not overlap."""
     tx, ty = target
     px, py = pos[k]
@@ -266,7 +266,7 @@ def keep_apart(k, target, pos, gap=3.2):
     return (tx, ty)
 
 
-def separate(pos, fixed, gap=2.6):
+def separate(pos, fixed, gap=3.2):
     """Hard minimum distance between dots; scripted players are never moved."""
     keys = list(pos)
     for _ in range(2):
@@ -338,11 +338,10 @@ def simulate(dt=0.02):
                 (x1, y1), (x2, y2) = TRACK[n](t), TRACK[n](t + dt)
                 pos[k], vel[k] = (x2, y2), ((x2 - x1) / dt, (y2 - y1) / dt)
                 continue
-            if t >= GOAL_T + 1.0 and n in CELEBRATE:   # chase Rooney, arriving after his pose
+            if t >= GOAL_T + 1.0 and n in HUDDLE:   # chase Rooney, arriving after his pose
                 sx, sy = pos["AST"]
-                j = CELEBRATE.index(n)
-                ang = math.pi + 0.5 + (math.pi - 1.0) * j / (len(CELEBRATE) - 1)
-                target, vmax = (sx + 5.0 * math.cos(ang), sy + 5.0 * math.sin(ang)), 5.2
+                r, a = HUDDLE[n]
+                target, vmax = (sx + r * math.cos(math.radians(a)), sy + r * math.sin(math.radians(a))), 5.2
             elif t >= GOAL_T:
                 target, vmax = pos[k], 3.0
             else:
@@ -359,8 +358,8 @@ def simulate(dt=0.02):
                 if t >= CONTACT_T - 0.05:  # stands near his right post, too late to reach the volley
                     if dive is None:
                         x0, y0 = pos[k]
-                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (CONTACT_T + 0.25, 104.0, 31.9), (GOAL_T, 104.1, 32.3),
-                                        (GOAL_T + 0.6, 103.9, 32.8), (PLAY_END, 103.9, 32.8)])
+                        dive = hermite([(CONTACT_T - 0.05, x0, y0), (CONTACT_T + 0.25, 104.0, 31.3), (GOAL_T, 104.1, 31.6),
+                                        (GOAL_T + 0.6, 103.9, 32.0), (PLAY_END, 103.9, 32.0)])
                     pos[k] = dive(t + dt)
                     continue
                 pos[k], vel[k] = step(pos[k], vel[k], b_target(n, def_ball), 0.3, 5.0, 8.0, dt)
@@ -488,30 +487,31 @@ def pose_layers(pose):
     """Arms spread at the corner flag; the stadium light falls on him."""
     t0, t1 = POSE_T, POSE_T + 0.3
     px, py = POSE_P
+    off = PLAY_END + 0.05                  # hidden by then; stay off through the next loop's fade-in
     show = (f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
-            f'values="0;0;1;1" keyTimes="{k_times(0, t0, t1, T)}"/>')
+            f'values="0;0;1;1;0;0" keyTimes="{k_times(0, t0, t1, PLAY_END, off, T)}"/>')
     arms = (f'<g opacity="0">{show}'
             f'<g><animateTransform attributeName="transform" type="scale" dur="{fmt(T)}s" repeatCount="indefinite" '
             f'values="0.2,1;0.2,1;1,1;1,1" keyTimes="{k_times(0, t0, t1, T)}"/>'
-            f'<path d="M-3.4 0H3.4" stroke="#fff" stroke-width=".52" stroke-linecap="round"/>'
-            f'<path d="M-3.4 0H3.4" stroke="{RED}" stroke-width=".26" stroke-linecap="round"/></g></g>')
+            f'<path d="M-4.2 0H4.2" stroke="#fff" stroke-width=".64" stroke-linecap="round"/>'
+            f'<path d="M-4.2 0H4.2" stroke="{RED}" stroke-width=".32" stroke-linecap="round"/></g></g>')
     dim = (f'<mask id="spot" maskUnits="userSpaceOnUse" x="-10" y="-10" width="130" height="90">'
            f'<rect x="-10" y="-10" width="130" height="90" fill="#fff"/>'
-           f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="7" fill="url(#hole)"/></mask>'
+           f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="8" fill="url(#hole)"/></mask>'
            f'<rect x="-10" y="-10" width="130" height="90" fill="#000" opacity="0" mask="url(#spot)">'
            f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
-           f'values="0;0;.5;.5" keyTimes="{k_times(0, t0 - 0.1, t1 + 0.5, T)}"/></rect>')
-    glow = (f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="5.5" fill="url(#light)" opacity="0">'
+           f'values="0;0;.5;.5;0;0" keyTimes="{k_times(0, t0 - 0.1, t1 + 0.5, PLAY_END, off, T)}"/></rect>')
+    glow = (f'<circle cx="{fmt(px)}" cy="{fmt(py)}" r="6.3" fill="url(#light)" opacity="0">'
             f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
-            f'values="0;0;1;1" keyTimes="{k_times(0, t0 - 0.1, t1 + 0.4, T)}"/></circle>')
+            f'values="0;0;1;1;0;0" keyTimes="{k_times(0, t0 - 0.1, t1 + 0.4, PLAY_END, off, T)}"/></circle>')
     dim += glow
     figure = ""
     if pose == "figure":   # small front-view pictogram: arms wide, head tilted back to the sky
-        fx, fy = px - 1.2, py - 7.6
+        fx, fy = px + 2.4, py - 7.6
         figure = (f'<g opacity="0" transform="translate({fmt(fx)},{fmt(fy)})">{show}'
                   f'<rect x="-3.4" y="-3.1" width="6.8" height="6.2" rx="1.2" fill="#0b2614" fill-opacity=".72" '
                   f'stroke="#fff" stroke-opacity=".5" stroke-width=".1"/>'
-                  f'<path d="M.7 3.1L1.2 4.1L1.9 3.1" fill="#0b2614" fill-opacity=".72"/>'
+                  f'<path d="M-2.9 3.1L-2.4 4.1L-1.7 3.1" fill="#0b2614" fill-opacity=".72"/>'
                   f'<g fill="none" stroke="#fff" stroke-width=".28" stroke-linecap="round" stroke-linejoin="round">'
                   f'<path d="M0 -1.15V.95M0 .95L-.75 2.4M0 .95L.75 2.4M-2.6 -1.2L0 -.75L2.6 -1.2"/>'
                   f'<ellipse cx=".2" cy="-1.85" rx=".48" ry=".42" transform="rotate(-28 .2 -1.85)"/></g>'
@@ -593,8 +593,8 @@ def build(font_bold, font_regular, pose="figure"):
             f'keyTimes="{k_times(0, FADE_START, PLAY_END, RESET_END, T)}"/>')
 
     def number(text):
-        d, w = text_outline(font_bold, text, 1.32)
-        return f'<path transform="translate({fmt(-w / 2, 3)},.47)" d="{d}" fill="#fff"/>'
+        d, w = text_outline(font_bold, text, 1.65)
+        return f'<path transform="translate({fmt(-w / 2, 3)},.59)" d="{d}" fill="#fff"/>'
 
     dim, arms, figure = pose_layers(pose)
     burst, goal_word = goal_layers(font_bold)
@@ -603,19 +603,19 @@ def build(font_bold, font_regular, pose="figure"):
     for k in order:
         color = {"AGK": RED_GK, "BGK": BLUE_GK}.get(k, RED if k[0] == "A" else BLUE)
         x0, y0 = tracks[k](0.0)
-        body = f'<circle r="{R}" fill="{color}" stroke="#fff" stroke-width=".2"/>{number(NUMBERS[k]) if k in NUMBERS else ""}'
+        body = f'<circle r="{R}" fill="{color}" stroke="#fff" stroke-width=".24"/>{number(NUMBERS[k]) if k in NUMBERS else ""}'
         if k == "AST":  # Rooney jumps, flips, lands, then spreads his arms at the corner
-            shadow = anim_transform("translate", lambda t: f"{fmt(.3 + 2.2 * (rooney_lift(t) - 1))},"
-                                                           f"{fmt(.4 + 2.8 * (rooney_lift(t) - 1))}", 0.05)
+            shadow = anim_transform("translate", lambda t: f"{fmt(.38 + 2.2 * (rooney_lift(t) - 1))},"
+                                                           f"{fmt(.5 + 2.8 * (rooney_lift(t) - 1))}", 0.05)
             lift = anim_transform("scale", lambda t: fmt(rooney_lift(t), 3), 0.05)
             c = CONTACT_T
             flip = (f'<g opacity="0"><animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
                     f'values="0;0;1;1;0;0" keyTimes="{k_times(0, c - 0.22, c - 0.16, c + 0.12, c + 0.25, T)}"/>'
                     f'<animateTransform attributeName="transform" type="rotate" dur="{fmt(T)}s" repeatCount="indefinite" '
                     f'values="0;0;360;360" keyTimes="{k_times(0, c - 0.2, c + 0.2, T)}"/>'
-                    f'<path d="M-2.05 0A2.05 2.05 0 0 1 2.05 0" fill="none" stroke="#fff" stroke-width=".24" '
-                    f'stroke-linecap="round"/><path d="M1.55 -.4L2.05 .15L2.55 -.4" fill="none" stroke="#fff" '
-                    f'stroke-width=".24" stroke-linecap="round" stroke-linejoin="round"/></g>')
+                    f'<path d="M-2.55 0A2.55 2.55 0 0 1 2.55 0" fill="none" stroke="#fff" stroke-width=".28" '
+                    f'stroke-linecap="round"/><path d="M2.05 -.45L2.55 .15L3.05 -.45" fill="none" stroke="#fff" '
+                    f'stroke-width=".28" stroke-linecap="round" stroke-linejoin="round"/></g>')
             players.append(
                 f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
                 f'<g>{shadow}<circle r="{R}" fill="#000" fill-opacity=".25"/></g>'
@@ -623,7 +623,7 @@ def build(font_bold, font_regular, pose="figure"):
             continue
         players.append(
             f'<g transform="translate({fmt(x0)},{fmt(y0)})">{anim_translate(tracks[k], 0.1)}'
-            f'<circle cx=".3" cy=".4" r="{R}" fill="#000" fill-opacity=".25"/>{body}</g>')
+            f'<circle cx=".38" cy=".5" r="{R}" fill="#000" fill-opacity=".25"/>{body}</g>')
 
     scale_vals = ";".join(fmt(ball_height(i * dt_b), 3) for i in range(nb + 1))
     shadow_vals = ";".join(f"{fmt(.22 + 2.4 * (ball_height(i * dt_b) - 1))},{fmt(.3 + 3.0 * (ball_height(i * dt_b) - 1))}"
@@ -640,14 +640,14 @@ def build(font_bold, font_regular, pose="figure"):
     # impact flash at the overhead kick, ripple when the ball hits the net
     cx, cy = CONTACT_P
     flash = (f'<circle cx="{fmt(cx)}" cy="{fmt(cy)}" r="0" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width=".16">'
-             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;2.7;2.7" '
+             f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;3.3;3.3" '
              f'keyTimes="{k_times(0, CONTACT_T, CONTACT_T + 0.3, T)}"/>'
              f'<animate attributeName="opacity" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;1;0;0" '
              f'keyTimes="{k_times(0, CONTACT_T - 0.01, CONTACT_T, CONTACT_T + 0.3, T)}"/></circle>')
     gx, gy = 105.6, GOAL_P[1]
     g0, g1 = GOAL_T, GOAL_T + 0.8
     ripple = (f'<circle cx="{gx}" cy="{fmt(gy)}" r="0" fill="none" stroke="#fff" stroke-width=".18">'
-              f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;3.4;3.4" '
+              f'<animate attributeName="r" dur="{fmt(T)}s" repeatCount="indefinite" values="0;0;4;4" '
               f'keyTimes="{k_times(0, g0, g1, T)}"/>'
               f'<animate attributeName="stroke-opacity" dur="{fmt(T)}s" repeatCount="indefinite" '
               f'values="0;0;.9;0;0" keyTimes="{k_times(0, g0 - 0.01, g0, g1, T)}"/></circle>')
